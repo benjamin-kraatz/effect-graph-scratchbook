@@ -5,6 +5,7 @@ import { Effect, Graph, Option } from "effect";
 type FriendshipWeight = number;
 type Person = { name: string; age: number; weight: FriendshipWeight };
 type Task = { id: string; description: string; duration: number };
+type Location = { name: string; coordinates: [number, number] };
 
 const findNodeInMap = <K, V>(map: Map<K, V>, key: K): V => {
   const node = map.get(key);
@@ -183,6 +184,93 @@ const taskDependencyExample = Effect.gen(function* () {
   }
 });
 
+const transportationExample = Effect.gen(function* () {
+  yield* Effect.log("=== Transportation Network ===");
+
+  const locations: Location[] = [
+    { name: "Home", coordinates: [0, 0] },
+    { name: "Work", coordinates: [5, 3] },
+    { name: "Gym", coordinates: [2, 4] },
+    { name: "Store", coordinates: [3, 1] },
+    { name: "Park", coordinates: [4, 5] },
+  ];
+
+  const roadNetwork = Graph.mutate(
+    Graph.undirected<Location, number>(),
+    (mutable) => {
+      const nodeMap = new Map<string, number>();
+
+      for (const location of locations) {
+        nodeMap.set(location.name, Graph.addNode(mutable, location));
+      }
+
+      const getNode = (name: string) => {
+        return findNodeInMap(nodeMap, name);
+      };
+
+      // Add roads with distances (in miles)
+      Graph.addEdge(mutable, getNode("Home"), getNode("Store"), 2.1);
+      Graph.addEdge(mutable, getNode("Home"), getNode("Gym"), 3.5);
+      Graph.addEdge(mutable, getNode("Store"), getNode("Work"), 2.8);
+      Graph.addEdge(mutable, getNode("Store"), getNode("Park"), 4.2);
+      Graph.addEdge(mutable, getNode("Gym"), getNode("Park"), 2.3);
+      Graph.addEdge(mutable, getNode("Park"), getNode("Work"), 1.7);
+      Graph.addEdge(mutable, getNode("Gym"), getNode("Work"), 3.9);
+    }
+  );
+
+  // Find shortest driving route from Home to Work
+  const homeIdx = Array.from(roadNetwork.nodes.values()).findIndex(
+    (n) => n.name === "Home"
+  );
+  const workIdx = Array.from(roadNetwork.nodes.values()).findIndex(
+    (n) => n.name === "Work"
+  );
+
+  const dijkstraResult = Graph.dijkstra(roadNetwork, {
+    source: homeIdx,
+    target: workIdx,
+    cost: (edgeData) => edgeData,
+  });
+  if (Option.isSome(dijkstraResult)) {
+    const route = dijkstraResult.value.path.map(
+      (idx) => roadNetwork.nodes.get(idx)?.name
+    );
+    yield* Effect.log(
+      `Shortest route from Home to Work: ${route.join(
+        " -> "
+      )} (${dijkstraResult.value.distance.toFixed(1)} miles)`
+    );
+  }
+
+  // Find all shortest paths from Home (Floyd-Warshall)
+  const allPairsShortestPaths = Graph.floydWarshall(roadNetwork, (edgeData) => {
+    return edgeData;
+  });
+  yield* Effect.log("");
+  yield* Effect.log("All-pairs shortest paths from Home:");
+  for (let i = 0; i < locations.length; i++) {
+    if (
+      (allPairsShortestPaths.distances.get(homeIdx)?.get(i) ?? Infinity) <
+      Infinity
+    ) {
+      const path = allPairsShortestPaths.paths.get(homeIdx)?.get(i);
+      const names = path?.map((idx) => roadNetwork.nodes.get(idx)?.name);
+      if (names !== undefined && names.length > 0) {
+        yield* Effect.log(
+          `  To ${locations[i]?.name ?? "Unknown"}: ${names.join(" -> ")} (${(
+            allPairsShortestPaths.distances.get(homeIdx)?.get(i) ?? Infinity
+          ).toFixed(1)} miles)`
+        );
+      } else {
+        yield* Effect.log(
+          `  To ${locations[i]?.name ?? "Unknown"}: No path found`
+        );
+      }
+    }
+  }
+});
+
 const program = Effect.gen(function* () {
   yield* basicGraphExample.pipe(Effect.withSpan("examples.basicGraphExample"));
   yield* Effect.log(" ");
@@ -192,6 +280,10 @@ const program = Effect.gen(function* () {
   yield* Effect.log(" ");
   yield* taskDependencyExample.pipe(
     Effect.withSpan("examples.taskDependencyExample")
+  );
+  yield* Effect.log(" ");
+  yield* transportationExample.pipe(
+    Effect.withSpan("examples.transportationExample")
   );
 });
 
