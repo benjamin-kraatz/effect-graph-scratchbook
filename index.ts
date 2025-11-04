@@ -6,6 +6,7 @@ type FriendshipWeight = number;
 type Person = { name: string; age: number; weight: FriendshipWeight };
 type Task = { id: string; description: string; duration: number };
 type Location = { name: string; coordinates: [number, number] };
+type GameState = { position: [number, number]; moves: number };
 
 const findNodeInMap = <K, V>(map: Map<K, V>, key: K): V => {
   const node = map.get(key);
@@ -271,6 +272,140 @@ const transportationExample = Effect.gen(function* () {
   }
 });
 
+const gameNavigationExample = Effect.gen(function* () {
+  yield* Effect.log("=== Game State Navigation with A* ===");
+
+  // Simple grid world with obstacles
+  const grid = [
+    [0, 0, 0, 1, 0], // 1 = obstacle
+    [0, 1, 0, 1, 0],
+    [0, 1, 0, 0, 0],
+    [0, 0, 0, 1, 0],
+    [0, 0, 0, 0, 0],
+  ];
+
+  // Create graph where each position is a node
+  const gameGraph = Graph.mutate(
+    Graph.undirected<GameState, number>(),
+    (mutable) => {
+      const nodeMap = new Map<string, number>();
+
+      // Add all valid positions as nodes
+      for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < (grid[y]?.length ?? 0); x++) {
+          if (grid[y]?.[x] === 0) {
+            // Not an obstacle
+            const state: GameState = { position: [x, y], moves: 0 };
+            nodeMap.set(`${x},${y}`, Graph.addNode(mutable, state));
+          }
+        }
+      }
+
+      const getNode = (x: number, y: number) => {
+        return findNodeInMap(nodeMap, `${x},${y}`);
+      };
+
+      // Add edges between adjacent positions
+      const directions = [
+        [0, 1],
+        [1, 0],
+        [0, -1],
+        [-1, 0],
+      ]; // up, right, down, left
+
+      for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < (grid[y]?.length ?? 0); x++) {
+          if (grid[y]?.[x] === 0 && nodeMap.has(`${x},${y}`)) {
+            for (const [dx, dy] of directions) {
+              const nx = x + (dx ?? 0);
+              const ny = y + (dy ?? 0);
+              if (
+                nx >= 0 &&
+                nx < (grid[0]?.length ?? 0) &&
+                ny >= 0 &&
+                ny < grid.length &&
+                grid[ny]?.[nx] === 0 &&
+                nodeMap.has(`${nx},${ny}`)
+              ) {
+                Graph.addEdge(mutable, getNode(x, y), getNode(nx, ny), 1); // Cost of 1 to move
+              }
+            }
+          }
+        }
+      }
+    }
+  );
+
+  // Heuristic function: Manhattan distance to goal
+  const heuristic = (state: GameState) => {
+    const [x, y] = state.position;
+    const goalX = 4,
+      goalY = 4; // Goal position
+    return Math.abs(x - goalX) + Math.abs(y - goalY);
+  };
+
+  const startIdx = Array.from(gameGraph.nodes.values()).findIndex(
+    (n) => n.position[0] === 0 && n.position[1] === 0
+  );
+  const goalIdx = Array.from(gameGraph.nodes.values()).findIndex(
+    (n) => n.position[0] === 4 && n.position[1] === 4
+  );
+
+  // Find path using A*
+  const astarResult = Graph.astar(gameGraph, {
+    source: startIdx,
+    target: goalIdx,
+    cost: (edgeData) => edgeData,
+    heuristic: heuristic,
+  });
+
+  if (Option.isSome(astarResult)) {
+    const path = astarResult.value.path.map(
+      (idx) => gameGraph.nodes.get(idx)?.position
+    );
+    yield* Effect.log(`A* path from (0,0) to (4,4): ${path?.join(" -> ")}`);
+    yield* Effect.log(`Total moves: ${astarResult.value.distance}`);
+  }
+});
+
+const visualizationExample = Effect.gen(function* () {
+  yield* Effect.log("=== Graph Visualization ===");
+
+  // Create a simple workflow graph
+  const workflowGraph = Graph.mutate(
+    Graph.directed<string, string>(),
+    (mutable) => {
+      const start = Graph.addNode(mutable, "Start");
+      const review = Graph.addNode(mutable, "Code Review");
+      const test = Graph.addNode(mutable, "Testing");
+      const deploy = Graph.addNode(mutable, "Deploy");
+      const end = Graph.addNode(mutable, "End");
+
+      Graph.addEdge(mutable, start, review, "submit");
+      Graph.addEdge(mutable, review, test, "approve");
+      Graph.addEdge(mutable, review, start, "reject");
+      Graph.addEdge(mutable, test, deploy, "pass");
+      Graph.addEdge(mutable, test, review, "fail");
+      Graph.addEdge(mutable, deploy, end, "success");
+    }
+  );
+
+  // Export to GraphViz DOT format
+  const dotFormat = Graph.toGraphViz(workflowGraph, {
+    nodeLabel: (node) => node,
+    edgeLabel: (edge) => edge,
+    graphName: "Workflow",
+  });
+
+  yield* Effect.log("GraphViz DOT format:");
+  yield* Effect.log(dotFormat);
+
+  // You can paste this DOT format into tools like:
+  // - https://dreampuf.github.io/GraphvizOnline/
+  // - https://graphviz.org/gallery/
+  // - VS Code GraphViz extension
+});
+
 const program = Effect.gen(function* () {
   yield* basicGraphExample.pipe(Effect.withSpan("examples.basicGraphExample"));
   yield* Effect.log(" ");
@@ -284,6 +419,14 @@ const program = Effect.gen(function* () {
   yield* Effect.log(" ");
   yield* transportationExample.pipe(
     Effect.withSpan("examples.transportationExample")
+  );
+  yield* Effect.log(" ");
+  yield* gameNavigationExample.pipe(
+    Effect.withSpan("examples.gameNavigationExample")
+  );
+  yield* Effect.log(" ");
+  yield* visualizationExample.pipe(
+    Effect.withSpan("examples.visualizationExample")
   );
 });
 
