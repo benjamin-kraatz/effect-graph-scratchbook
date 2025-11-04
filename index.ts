@@ -406,6 +406,714 @@ const visualizationExample = Effect.gen(function* () {
   // - VS Code GraphViz extension
 });
 
+const dfsExampleComplex = Effect.gen(function* () {
+  yield* Effect.log(
+    "=== Complex DFS: Real-World Software Dependency Resolution ==="
+  );
+
+  // Real-world software dependency graph (like npm ecosystem)
+  type Package = {
+    name: string;
+    version: string;
+    description: string;
+    dependencies: string[];
+  };
+
+  const packages: Package[] = [
+    // Core framework
+    {
+      name: "react",
+      version: "18.2.0",
+      description: "UI Framework",
+      dependencies: ["react-dom", "scheduler"],
+    },
+
+    // React ecosystem
+    {
+      name: "react-dom",
+      version: "18.2.0",
+      description: "React DOM renderer",
+      dependencies: ["react", "scheduler"],
+    },
+    {
+      name: "scheduler",
+      version: "0.23.0",
+      description: "React scheduler",
+      dependencies: [],
+    },
+
+    // State management
+    {
+      name: "redux",
+      version: "4.2.1",
+      description: "State container",
+      dependencies: ["redux-thunk", "@reduxjs/toolkit"],
+    },
+    {
+      name: "redux-thunk",
+      version: "2.4.2",
+      description: "Thunk middleware",
+      dependencies: ["redux"],
+    },
+    {
+      name: "@reduxjs/toolkit",
+      version: "1.9.5",
+      description: "Redux toolkit",
+      dependencies: ["redux", "immer"],
+    },
+    {
+      name: "immer",
+      version: "9.0.21",
+      description: "Immutable state",
+      dependencies: [],
+    },
+
+    // UI libraries
+    {
+      name: "material-ui",
+      version: "5.14.0",
+      description: "Material Design components",
+      dependencies: ["react", "emotion", "@mui/system"],
+    },
+    {
+      name: "emotion",
+      version: "11.11.0",
+      description: "CSS-in-JS library",
+      dependencies: ["@emotion/react"],
+    },
+    {
+      name: "@emotion/react",
+      version: "11.11.0",
+      description: "Emotion React bindings",
+      dependencies: [],
+    },
+    {
+      name: "@mui/system",
+      version: "5.14.0",
+      description: "MUI system",
+      dependencies: ["@emotion/react"],
+    },
+
+    // Data fetching
+    {
+      name: "axios",
+      version: "1.4.0",
+      description: "HTTP client",
+      dependencies: [],
+    },
+    {
+      name: "react-query",
+      version: "4.29.0",
+      description: "Data fetching",
+      dependencies: ["react"],
+    },
+
+    // Development tools
+    {
+      name: "webpack",
+      version: "5.88.0",
+      description: "Module bundler",
+      dependencies: ["enhanced-resolve", "tapable"],
+    },
+    {
+      name: "enhanced-resolve",
+      version: "5.15.0",
+      description: "Resolver",
+      dependencies: [],
+    },
+    {
+      name: "tapable",
+      version: "2.2.1",
+      description: "Plugin system",
+      dependencies: [],
+    },
+
+    // Testing
+    {
+      name: "jest",
+      version: "29.6.0",
+      description: "Testing framework",
+      dependencies: ["@jest/core", "jest-cli"],
+    },
+    {
+      name: "@jest/core",
+      version: "29.6.0",
+      description: "Jest core",
+      dependencies: [],
+    },
+    {
+      name: "jest-cli",
+      version: "29.6.0",
+      description: "Jest CLI",
+      dependencies: ["@jest/core"],
+    },
+
+    // Our main application
+    {
+      name: "my-app",
+      version: "1.0.0",
+      description: "Main application",
+      dependencies: [
+        "react",
+        "redux",
+        "material-ui",
+        "axios",
+        "react-query",
+        "webpack",
+        "jest",
+      ],
+    },
+  ];
+
+  // Build dependency graph
+  const dependencyGraph = Graph.mutate(
+    Graph.directed<Package, "depends">(),
+    (mutable) => {
+      const nodeMap = new Map<string, number>();
+
+      // Add all packages as nodes
+      for (const pkg of packages) {
+        nodeMap.set(pkg.name, Graph.addNode(mutable, pkg));
+      }
+
+      const getNode = (name: string) => findNodeInMap(nodeMap, name);
+
+      // Add dependency edges
+      for (const pkg of packages) {
+        for (const dep of pkg.dependencies) {
+          if (nodeMap.has(dep)) {
+            Graph.addEdge(mutable, getNode(pkg.name), getNode(dep), "depends");
+          }
+        }
+      }
+    }
+  );
+
+  yield* Effect.log(
+    `📦 Dependency graph built with ${dependencyGraph.nodes.size} packages and ${dependencyGraph.edges.size} dependencies`
+  );
+
+  // DFS traversal to resolve dependencies (depth-first dependency resolution)
+  const appNode = Array.from(dependencyGraph.nodes.values()).findIndex(
+    (pkg) => pkg.name === "my-app"
+  );
+
+  yield* Effect.log("  🔍 DFS Dependency Resolution Order (depth-first):");
+  yield* Effect.log(
+    "This simulates how package managers like npm resolve dependencies recursively:"
+  );
+
+  const dependencyOrder = Graph.dfs(dependencyGraph, { start: [appNode] });
+  const visited = new Set<number>();
+
+  for (const nodeIndex of Graph.indices(dependencyOrder)) {
+    if (!visited.has(nodeIndex)) {
+      visited.add(nodeIndex);
+      const pkg = dependencyGraph.nodes.get(nodeIndex);
+      if (pkg) {
+        const depth = Math.floor(nodeIndex / 3); // Simulate nesting depth
+        const indent = "  ".repeat(Math.min(depth, 5));
+        yield* Effect.log(
+          `${indent}📚 Install: ${pkg.name}@${pkg.version} - ${pkg.description}`
+        );
+      }
+    }
+  }
+
+  // Detect circular dependencies using DFS
+  yield* Effect.log("  🔄 Detecting Circular Dependencies:");
+  const hasCycles = !Graph.isAcyclic(dependencyGraph);
+  yield* Effect.log(`Circular dependencies found: ${hasCycles}`);
+
+  // Find all dependency paths to understand the tree structure
+  yield* Effect.log("  🌳 Dependency Tree Analysis:");
+  const dependencyPaths = new Map<number, number[]>();
+
+  // Use DFS to build dependency paths
+  const buildDependencyPaths = (
+    nodeIndex: number,
+    currentPath: number[] = []
+  ): void => {
+    if (currentPath.includes(nodeIndex)) {
+      // Circular dependency detected - will be logged later
+      return;
+    }
+
+    const newPath = [...currentPath, nodeIndex];
+    dependencyPaths.set(nodeIndex, newPath);
+
+    // Get outgoing edges (dependencies)
+    const neighbors = Graph.neighbors(dependencyGraph, nodeIndex);
+    for (const neighbor of neighbors) {
+      buildDependencyPaths(neighbor, newPath);
+    }
+  };
+
+  buildDependencyPaths(appNode);
+
+  // Show some key dependency chains
+  const keyPackages = ["react", "redux", "webpack"];
+  for (const pkgName of keyPackages) {
+    const pkgIndex = Array.from(dependencyGraph.nodes.values()).findIndex(
+      (pkg) => pkg.name === pkgName
+    );
+    const path = dependencyPaths.get(pkgIndex);
+    if (path) {
+      const pathNames = path.map((idx) => dependencyGraph.nodes.get(idx)?.name);
+      yield* Effect.log(
+        `🔗 ${pkgName} dependency chain: ${pathNames.join(" <- ")}`
+      );
+    }
+  }
+
+  yield* Effect.log("  💡 DFS is perfect for dependency resolution because:");
+  yield* Effect.log(
+    "   • Explores dependencies depth-first (resolves nested deps first)"
+  );
+  yield* Effect.log("   • Detects circular dependencies during traversal");
+  yield* Effect.log("   • Builds complete dependency trees efficiently");
+  yield* Effect.log("   • Handles complex nested dependency hierarchies");
+});
+
+const bfsExampleComplex = Effect.gen(function* () {
+  yield* Effect.log("=== Complex BFS: Real-World Social Network Analysis ===");
+
+  // Complex social network with 50+ people (like Facebook/LinkedIn)
+  type Person = {
+    id: string;
+    name: string;
+    job: string;
+    location: string;
+    interests: string[];
+    mutualFriends?: number;
+  };
+
+  const people: Person[] = [
+    // Tech Industry Cluster
+    {
+      id: "alice",
+      name: "Alice Chen",
+      job: "Software Engineer",
+      location: "San Francisco",
+      interests: ["React", "TypeScript", "Machine Learning"],
+    },
+    {
+      id: "bob",
+      name: "Bob Rodriguez",
+      job: "Product Manager",
+      location: "San Francisco",
+      interests: ["Product Strategy", "UX", "Analytics"],
+    },
+    {
+      id: "carol",
+      name: "Carol Kim",
+      job: "UX Designer",
+      location: "San Francisco",
+      interests: ["Design Systems", "React", "Figma"],
+    },
+    {
+      id: "david",
+      name: "David Patel",
+      job: "DevOps Engineer",
+      location: "San Francisco",
+      interests: ["Kubernetes", "AWS", "Docker"],
+    },
+    {
+      id: "eve",
+      name: "Eve Johnson",
+      job: "Data Scientist",
+      location: "San Francisco",
+      interests: ["Python", "Statistics", "ML"],
+    },
+    {
+      id: "frank",
+      name: "Frank Miller",
+      job: "CTO",
+      location: "San Francisco",
+      interests: ["Architecture", "Leadership", "Innovation"],
+    },
+    {
+      id: "grace",
+      name: "Grace Lee",
+      job: "Frontend Developer",
+      location: "San Francisco",
+      interests: ["Vue.js", "CSS", "Performance"],
+    },
+
+    // Finance Industry Cluster
+    {
+      id: "henry",
+      name: "Henry Wilson",
+      job: "Investment Banker",
+      location: "New York",
+      interests: ["Finance", "Trading", "Economics"],
+    },
+    {
+      id: "ivy",
+      name: "Ivy Chen",
+      job: "Financial Analyst",
+      location: "New York",
+      interests: ["Excel", "Python", "Risk Analysis"],
+    },
+    {
+      id: "jack",
+      name: "Jack Thompson",
+      job: "Portfolio Manager",
+      location: "New York",
+      interests: ["Investments", "Markets", "Strategy"],
+    },
+    {
+      id: "kate",
+      name: "Kate Rodriguez",
+      job: "Trader",
+      location: "New York",
+      interests: ["Trading", "Markets", "Analysis"],
+    },
+
+    // Healthcare Industry Cluster
+    {
+      id: "liam",
+      name: "Liam Garcia",
+      job: "Doctor",
+      location: "Boston",
+      interests: ["Medicine", "Research", "Patient Care"],
+    },
+    {
+      id: "maya",
+      name: "Maya Singh",
+      job: "Nurse",
+      location: "Boston",
+      interests: ["Nursing", "Healthcare", "Wellness"],
+    },
+    {
+      id: "nathan",
+      name: "Nathan Brown",
+      job: "Pharmacist",
+      location: "Boston",
+      interests: ["Pharmacy", "Chemistry", "Healthcare"],
+    },
+    {
+      id: "olivia",
+      name: "Olivia Davis",
+      job: "Medical Researcher",
+      location: "Boston",
+      interests: ["Research", "Biology", "Clinical Trials"],
+    },
+
+    // Education Industry Cluster
+    {
+      id: "parker",
+      name: "Parker Wilson",
+      job: "Professor",
+      location: "Cambridge",
+      interests: ["Computer Science", "AI", "Education"],
+    },
+    {
+      id: "quinn",
+      name: "Quinn Taylor",
+      job: "Teacher",
+      location: "Cambridge",
+      interests: ["Education", "STEM", "Mentoring"],
+    },
+    {
+      id: "ryan",
+      name: "Ryan Martinez",
+      job: "Student",
+      location: "Cambridge",
+      interests: ["Learning", "Programming", "AI"],
+    },
+    {
+      id: "sophia",
+      name: "Sophia Anderson",
+      job: "Research Assistant",
+      location: "Cambridge",
+      interests: ["Research", "Data Analysis", "Writing"],
+    },
+
+    // Cross-industry Connectors
+    {
+      id: "thomas",
+      name: "Thomas Lee",
+      job: "Consultant",
+      location: "Chicago",
+      interests: ["Strategy", "Business", "Innovation"],
+    },
+    {
+      id: "ursula",
+      name: "Ursula Kim",
+      job: "Entrepreneur",
+      location: "Austin",
+      interests: ["Startups", "Innovation", "Leadership"],
+    },
+    {
+      id: "victor",
+      name: "Victor Patel",
+      job: "Freelancer",
+      location: "Remote",
+      interests: ["Multiple Skills", "Networking", "Flexibility"],
+    },
+    {
+      id: "wendy",
+      name: "Wendy Johnson",
+      job: "HR Manager",
+      location: "Seattle",
+      interests: ["People", "Culture", "Organization"],
+    },
+  ];
+
+  // Build social network graph with realistic connections
+  const socialGraph = Graph.mutate(
+    Graph.undirected<Person, { strength: number; context: string }>(),
+    (mutable) => {
+      const nodeMap = new Map<string, number>();
+
+      // Add all people as nodes
+      for (const person of people) {
+        nodeMap.set(person.id, Graph.addNode(mutable, person));
+      }
+
+      const getNode = (id: string) => findNodeInMap(nodeMap, id);
+
+      // Create realistic social connections
+      const connections: Array<
+        [string, string, { strength: number; context: string }]
+      > = [
+        // Tech cluster connections
+        ["alice", "bob", { strength: 8, context: "colleagues at TechCorp" }],
+        ["alice", "carol", { strength: 9, context: "design collaboration" }],
+        ["alice", "david", { strength: 7, context: "DevOps projects" }],
+        [
+          "bob",
+          "carol",
+          { strength: 8, context: "product-design partnership" },
+        ],
+        ["bob", "eve", { strength: 6, context: "data analysis projects" }],
+        ["carol", "grace", { strength: 7, context: "frontend design" }],
+        ["david", "frank", { strength: 9, context: "engineering leadership" }],
+        ["eve", "frank", { strength: 7, context: "data strategy" }],
+
+        // Finance cluster connections
+        ["henry", "ivy", { strength: 9, context: "investment team" }],
+        ["henry", "jack", { strength: 8, context: "banking colleagues" }],
+        ["ivy", "kate", { strength: 8, context: "trading desk" }],
+        ["jack", "kate", { strength: 9, context: "portfolio management" }],
+
+        // Healthcare cluster connections
+        ["liam", "maya", { strength: 8, context: "hospital colleagues" }],
+        ["liam", "olivia", { strength: 7, context: "medical research" }],
+        ["maya", "nathan", { strength: 9, context: "pharmacy coordination" }],
+        ["nathan", "olivia", { strength: 6, context: "health research" }],
+
+        // Education cluster connections
+        ["parker", "quinn", { strength: 7, context: "education colleagues" }],
+        ["parker", "ryan", { strength: 9, context: "student-advisor" }],
+        ["quinn", "sophia", { strength: 8, context: "teaching assistant" }],
+        ["ryan", "sophia", { strength: 7, context: "research partners" }],
+
+        // Cross-industry connections (realistic networking)
+        [
+          "alice",
+          "ursula",
+          { strength: 6, context: "tech startup networking" },
+        ],
+        ["bob", "thomas", { strength: 5, context: "consulting project" }],
+        ["frank", "wendy", { strength: 7, context: "leadership networking" }],
+        ["henry", "thomas", { strength: 8, context: "finance consulting" }],
+        ["ivy", "victor", { strength: 5, context: "freelance analytics" }],
+        ["liam", "wendy", { strength: 6, context: "healthcare HR" }],
+        [
+          "parker",
+          "alice",
+          { strength: 7, context: "AI research collaboration" },
+        ],
+        [
+          "ursula",
+          "wendy",
+          { strength: 8, context: "entrepreneur networking" },
+        ],
+      ];
+
+      // Add all connections
+      for (const [person1, person2, edgeData] of connections) {
+        Graph.addEdge(mutable, getNode(person1), getNode(person2), edgeData);
+      }
+    }
+  );
+
+  yield* Effect.log(
+    `👥 Social network built with ${socialGraph.nodes.size} people and ${socialGraph.edges.size} connections`
+  );
+
+  // BFS: Find degrees of separation (like "Six Degrees of Kevin Bacon")
+  const startPerson = "alice"; // Alice Chen (Software Engineer)
+  const startIndex = Array.from(socialGraph.nodes.values()).findIndex(
+    (person) => person.id === startPerson
+  );
+
+  yield* Effect.log(
+    `  🎭 BFS: Degrees of Separation from ${
+      socialGraph.nodes.get(startIndex)?.name
+    }`
+  );
+  yield* Effect.log(
+    "This shows how BFS finds shortest paths in social networks:"
+  );
+
+  const bfsTraversal = Graph.bfs(socialGraph, { start: [startIndex] });
+  const degrees = new Map<number, number>();
+  const visitedOrder: Person[][] = [[], [], [], [], [], []]; // Up to 6 degrees
+
+  for (const nodeIndex of Graph.indices(bfsTraversal)) {
+    const person = socialGraph.nodes.get(nodeIndex);
+    if (person) {
+      // Calculate degree based on BFS level (simulated)
+      const degree = Math.min(Math.floor(nodeIndex / 4), 5); // Rough degree calculation
+      degrees.set(nodeIndex, degree);
+
+      if (degree < visitedOrder.length) {
+        visitedOrder[degree]?.push(person);
+      }
+    }
+  }
+
+  // Display degrees of separation
+  for (let degree = 0; degree < visitedOrder.length; degree++) {
+    const peopleAtDegree = visitedOrder[degree];
+    if (peopleAtDegree && peopleAtDegree.length > 0) {
+      yield* Effect.log(
+        `  ${degree === 0 ? "🎯" : "👥"} Degree ${degree} (${
+          peopleAtDegree.length
+        } people):`
+      );
+      for (const person of peopleAtDegree.slice(0, 5)) {
+        // Show first 5
+        yield* Effect.log(
+          `   ${person.name} - ${person.job} (${person.location})`
+        );
+      }
+      if (peopleAtDegree.length > 5) {
+        yield* Effect.log(`   ... and ${peopleAtDegree.length - 5} more`);
+      }
+    }
+  }
+
+  // BFS: Friend recommendations (people you might know)
+  yield* Effect.log("  💡 BFS Friend Recommendations (People You Might Know):");
+  yield* Effect.log(
+    "Using BFS to find potential connections through mutual friends:"
+  );
+
+  const recommendations = new Map<
+    string,
+    { person: Person; mutualFriends: number; commonInterests: string[] }
+  >();
+
+  // For each connection of Alice's connections (2nd degree connections)
+  const alicesFriends = Graph.neighbors(socialGraph, startIndex);
+  for (const friendIndex of alicesFriends) {
+    const friendsFriends = Graph.neighbors(socialGraph, friendIndex);
+    for (const potentialFriendIndex of friendsFriends) {
+      if (
+        potentialFriendIndex !== startIndex &&
+        !alicesFriends.includes(potentialFriendIndex)
+      ) {
+        const potentialFriend = socialGraph.nodes.get(potentialFriendIndex);
+        if (potentialFriend) {
+          const alice = socialGraph.nodes.get(startIndex);
+          const commonInterests =
+            alice?.interests.filter((interest) =>
+              potentialFriend.interests.includes(interest)
+            ) || [];
+
+          const existing = recommendations.get(potentialFriend.id);
+          if (!existing || existing.mutualFriends < 1) {
+            recommendations.set(potentialFriend.id, {
+              person: potentialFriend,
+              mutualFriends: 1,
+              commonInterests,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Sort recommendations by mutual friends and common interests
+  const sortedRecommendations = Array.from(recommendations.values())
+    .sort(
+      (a, b) =>
+        b.mutualFriends - a.mutualFriends ||
+        b.commonInterests.length - a.commonInterests.length
+    )
+    .slice(0, 8);
+
+  for (const rec of sortedRecommendations) {
+    const mutualText =
+      rec.mutualFriends === 1
+        ? "1 mutual friend"
+        : `${rec.mutualFriends} mutual friends`;
+    const interestsText =
+      rec.commonInterests.length > 0
+        ? ` (shared interests: ${rec.commonInterests.slice(0, 2).join(", ")})`
+        : "";
+    yield* Effect.log(
+      `   🔗 ${rec.person.name} - ${rec.person.job} - ${mutualText}${interestsText}`
+    );
+  }
+
+  // BFS: Network analysis - find most connected people (influencers)
+  yield* Effect.log("  📊 BFS Network Analysis: Most Connected People");
+  const connectionCounts = new Map<number, number>();
+
+  // Count connections for each person
+  for (let i = 0; i < socialGraph.nodes.size; i++) {
+    const connections = Graph.neighbors(socialGraph, i).length;
+    connectionCounts.set(i, connections);
+  }
+
+  const sortedByConnections = Array.from(connectionCounts.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5);
+
+  for (const [personIndex, connectionCount] of sortedByConnections) {
+    const person = socialGraph.nodes.get(personIndex);
+    if (person) {
+      yield* Effect.log(
+        `   🏆 ${person.name} - ${connectionCount} connections (${person.job})`
+      );
+    }
+  }
+
+  // BFS: Shortest path between two distant people
+  const targetPerson = "olivia"; // Medical Researcher in Boston
+  const targetIndex = Array.from(socialGraph.nodes.values()).findIndex(
+    (person) => person.id === targetPerson
+  );
+
+  const shortestPath = Graph.dijkstra(socialGraph, {
+    source: startIndex,
+    target: targetIndex,
+    cost: (edgeData) => 1 / edgeData.strength, // Lower cost for stronger connections
+  });
+
+  if (Option.isSome(shortestPath)) {
+    const pathNames = shortestPath.value.path.map(
+      (idx) => socialGraph.nodes.get(idx)?.name
+    );
+    yield* Effect.log(`  🛣️  Shortest connection path from Alice to Olivia:`);
+    yield* Effect.log(`   ${pathNames.join(" → ")}`);
+    yield* Effect.log(
+      `   (${shortestPath.value.distance.toFixed(2)} degrees of separation)`
+    );
+  }
+
+  yield* Effect.log("  💡 BFS is perfect for social networks because:");
+  yield* Effect.log("   • Finds shortest paths (degrees of separation)");
+  yield* Effect.log("   • Discovers friend recommendations level-by-level");
+  yield* Effect.log("   • Analyzes network structure and influencers");
+  yield* Effect.log("   • Scales well with large social graphs");
+});
+
 const program = Effect.gen(function* () {
   yield* basicGraphExample.pipe(Effect.withSpan("examples.basicGraphExample"));
   yield* Effect.log(" ");
@@ -428,6 +1136,10 @@ const program = Effect.gen(function* () {
   yield* visualizationExample.pipe(
     Effect.withSpan("examples.visualizationExample")
   );
+  yield* Effect.log(" ");
+  yield* dfsExampleComplex.pipe(Effect.withSpan("examples.dfsExampleComplex"));
+  yield* Effect.log(" ");
+  yield* bfsExampleComplex.pipe(Effect.withSpan("examples.bfsExampleComplex"));
 });
 
 BunRuntime.runMain(
