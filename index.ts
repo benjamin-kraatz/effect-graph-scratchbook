@@ -1,53 +1,205 @@
+import { DevTools } from "@effect/experimental";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
-import { Effect, Graph } from "effect";
+import { Effect, Graph, Option } from "effect";
 
-type Engineer = { kind: "Engineer"; name: string };
-type Project = { kind: "Project"; name: string };
+type FriendshipWeight = number;
+type Person = { name: string; age: number; weight: FriendshipWeight };
+type Task = { id: string; description: string; duration: number };
 
-const engineers = [
-  { kind: "Engineer", name: "Alice" },
-  { kind: "Engineer", name: "Bob" },
-  { kind: "Engineer", name: "Carol" },
-] as const;
+const findNodeInMap = <K, V>(map: Map<K, V>, key: K): V => {
+  const node = map.get(key);
+  if (node === undefined) throw new Error(`Node ${key} not found in map`);
+  return node;
+};
 
-const projects = [
-  { kind: "Project", name: "Website" },
-  { kind: "Project", name: "Mobile App" },
-  { kind: "Project", name: "Infra" },
-] as const;
+const basicGraphExample = Effect.gen(function* () {
+  yield* Effect.log("=== Basic Graph Operations ===");
 
-const program = Effect.gen(function* () {
-  const g = Graph.mutate(
-    Graph.directed<Engineer | Project, undefined>(),
+  // Create directed graph
+  const directed = Graph.directed<string, number>();
+
+  // Mutable graph operations
+  const mutableGraph = Graph.mutate(directed, (mutable) => {
+    // Add nodes
+    const nodeA = Graph.addNode(mutable, "Node A");
+    const nodeB = Graph.addNode(mutable, "Node B");
+    const nodeC = Graph.addNode(mutable, "Node C");
+
+    // Add edges with weights
+    Graph.addEdge(mutable, nodeA, nodeB, 5);
+    Graph.addEdge(mutable, nodeB, nodeC, 3);
+    Graph.addEdge(mutable, nodeA, nodeC, 8);
+  });
+
+  yield* Effect.log(`Graph has ${mutableGraph.nodes.size} nodes`);
+  yield* Effect.log(`Graph has ${mutableGraph.edges.size} edges`);
+});
+
+const socialNetworkExample = Effect.gen(function* () {
+  yield* Effect.log("=== Social Network Analysis ===");
+
+  const people: Person[] = [
+    { name: "Alice", age: 28, weight: 1 },
+    { name: "Bob", age: 32, weight: 1 },
+    { name: "Carol", age: 25, weight: 1 },
+    { name: "David", age: 35, weight: 1 },
+    { name: "Eve", age: 29, weight: 1 },
+  ];
+
+  // Create undirected graph for friendships
+  const socialGraph = Graph.mutate(
+    Graph.undirected<Person, FriendshipWeight>(),
     (mutable) => {
       const nodeMap = new Map<string, number>();
 
-      // Add nodes and store their indices
-      for (const e of engineers) nodeMap.set(e.name, Graph.addNode(mutable, e));
-      for (const p of projects) nodeMap.set(p.name, Graph.addNode(mutable, p));
+      // Add all people as nodes
+      for (const person of people) {
+        nodeMap.set(person.name, Graph.addNode(mutable, person));
+      }
 
-      // Helper function to get node index safely
       const getNode = (name: string) => {
-        const node = nodeMap.get(name);
-        if (node === undefined) throw new Error(`Node ${name} not found`);
-        return node;
+        return findNodeInMap(nodeMap, name);
       };
 
-      // Add edges representing who can work on what
-      Graph.addEdge(mutable, getNode("Alice"), getNode("Website"), undefined);
+      // Add friendships
       Graph.addEdge(
         mutable,
         getNode("Alice"),
-        getNode("Mobile App"),
-        undefined
+        getNode("Bob"),
+        people[0]?.weight ?? 1
       );
-      Graph.addEdge(mutable, getNode("Bob"), getNode("Website"), undefined);
-      Graph.addEdge(mutable, getNode("Bob"), getNode("Infra"), undefined);
-      Graph.addEdge(mutable, getNode("Carol"), getNode("Infra"), undefined);
+      Graph.addEdge(
+        mutable,
+        getNode("Bob"),
+        getNode("Carol"),
+        people[1]?.weight ?? 1
+      );
+      Graph.addEdge(
+        mutable,
+        getNode("Carol"),
+        getNode("David"),
+        people[2]?.weight ?? 1
+      );
+      Graph.addEdge(
+        mutable,
+        getNode("Carol"),
+        getNode("Eve"),
+        people[2]?.weight ?? 1
+      );
+      Graph.addEdge(
+        mutable,
+        getNode("David"),
+        getNode("Eve"),
+        people[3]?.weight ?? 1
+      );
+      Graph.addEdge(
+        mutable,
+        getNode("Alice"),
+        getNode("Alice"),
+        people[0]?.weight ?? 1
+      ); // Creates a cycle
     }
   );
 
-  yield* Effect.log(g.toString());
+  // Check connectivity
+  const components = Graph.connectedComponents(socialGraph);
+  yield* Effect.log(`Network has ${components.length} connected components`);
+
+  // Find shortest paths
+  const aliceNode = Array.from(socialGraph.nodes.values()).findIndex(
+    (n) => n.name === "Alice"
+  );
+  const eveNode = Array.from(socialGraph.nodes.values()).findIndex(
+    (n) => n.name === "Eve"
+  );
+
+  const shortestPath = Graph.dijkstra(socialGraph, {
+    source: aliceNode,
+    target: eveNode,
+    cost: (edgeData) => edgeData,
+  });
+  if (Option.isSome(shortestPath)) {
+    const pathNames = shortestPath.value.path.map(
+      (idx) => socialGraph.nodes.get(idx)?.name
+    );
+    yield* Effect.log(
+      `Shortest path from Alice to Eve: ${pathNames?.join(" -> ")}`
+    );
+    yield* Effect.log(`Shortest path distance: ${shortestPath.value.distance}`);
+  }
+
+  // Detect cycles
+  const hasCycle = !Graph.isAcyclic(socialGraph);
+  yield* Effect.log(`Social network has cycles: ${hasCycle}`);
 });
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)));
+const taskDependencyExample = Effect.gen(function* () {
+  yield* Effect.log("=== Task Dependency Graph ===");
+
+  const tasks: Task[] = [
+    { id: "design", description: "Create UI designs", duration: 2 },
+    { id: "setup", description: "Project setup", duration: 1 },
+    { id: "backend", description: "Implement backend API", duration: 5 },
+    { id: "frontend", description: "Implement frontend", duration: 4 },
+    { id: "testing", description: "Write tests", duration: 2 },
+    { id: "deploy", description: "Deploy to production", duration: 1 },
+  ];
+
+  const taskGraph = Graph.mutate(
+    Graph.directed<Task, "depends">(),
+    (mutable) => {
+      const nodeMap = new Map<string, number>();
+
+      for (const task of tasks) {
+        nodeMap.set(task.id, Graph.addNode(mutable, task));
+      }
+
+      const getNode = (id: string) => {
+        return findNodeInMap(nodeMap, id);
+      };
+
+      // Define dependencies
+      Graph.addEdge(mutable, getNode("setup"), getNode("backend"), "depends");
+      Graph.addEdge(mutable, getNode("setup"), getNode("frontend"), "depends");
+      Graph.addEdge(mutable, getNode("design"), getNode("frontend"), "depends");
+      Graph.addEdge(mutable, getNode("backend"), getNode("testing"), "depends");
+      Graph.addEdge(
+        mutable,
+        getNode("frontend"),
+        getNode("testing"),
+        "depends"
+      );
+      Graph.addEdge(mutable, getNode("testing"), getNode("deploy"), "depends");
+    }
+  );
+
+  // Topological sort for task execution order
+  const executionOrder = Graph.topo(taskGraph);
+  yield* Effect.log("Task execution order:");
+  for (const [_, task] of executionOrder) {
+    yield* Effect.log(
+      `  ${task.id}: ${task.description} (${task.duration} days)`
+    );
+  }
+});
+
+const program = Effect.gen(function* () {
+  yield* basicGraphExample.pipe(Effect.withSpan("examples.basicGraphExample"));
+  yield* Effect.log(" ");
+  yield* socialNetworkExample.pipe(
+    Effect.withSpan("examples.socialNetworkExample")
+  );
+  yield* Effect.log(" ");
+  yield* taskDependencyExample.pipe(
+    Effect.withSpan("examples.taskDependencyExample")
+  );
+});
+
+BunRuntime.runMain(
+  program.pipe(
+    Effect.withSpan("mainProgram"),
+    Effect.provide(DevTools.layer()),
+    Effect.provide(BunContext.layer),
+    Effect.scoped
+  )
+);
