@@ -13,6 +13,7 @@
 - [Performance & Scalability](#performance--scalability)
 - [Enterprise Use Cases](#enterprise-use-cases)
 - [Future Enhancements](#future-enhancements)
+- [Sample Output](#sample-output)
 
 ## 🎯 Overview
 
@@ -562,6 +563,150 @@ bun run type-check
 # Performance benchmarks
 bun run benchmark
 ```
+
+## Sample Output
+
+```bash
+bun run dev
+```
+
+<details>
+  <summary>Sample output with demo data</summary>
+   
+    🛒 ENTERPRISE CART RECOMMENDATION SYSTEM
+    ========================================
+
+    📊 Product Relationship Graph Built:
+       • 31 products
+       • 80 relationships
+       • Categories: 9
+       • Brands: 27
+   
+    🎯 SCENARIO 1: Tech Professional Laptop Shopping
+    Customer: John Smith (Premium segment, $15K+ spent)
+    Cart: MacBook Pro 16-inch
+    
+    📋 Recommended Products:
+    1. Garmin Fenix 7 (Garmin) - $699
+       Score: 10.57/10, Popular product
+       ⭐ 4.5/5 (4567 reviews)
+    
+    2. LG 27UL950-W 4K Monitor (LG) - $699
+       Score: 10.57/10, Popular product
+       ⭐ 4.5/5 (3456 reviews)
+    
+    3. iPad Pro 12.9-inch (Apple) - $1099
+       Score: 10.56/10, Matches your preferred category: Electronics
+       ⭐ 4.7/5 (2156 reviews)
+    
+    4. Dyson V15 Detect (Dyson) - $749
+       Score: 10.03/10, Popular product
+       ⭐ 4.6/5 (3456 reviews)
+    
+    5. Dyson Airwrap (Dyson) - $599
+       Score: 9.13/10, Popular product
+       ⭐ 4.1/5 (6789 reviews)
+    
+    🏠 SCENARIO 2: Home Chef Kitchen Upgrade
+    Customer: Sarah Johnson (Regular segment, kitchen enthusiast)
+    Cart: Nespresso Vertuo Coffee Maker, Instant Pot 8QT
+    
+    📋 Recommended Products:
+    1. AirPods Pro (Apple) - $249
+       Score: 8.42/10, Popular product
+    
+    2. Oral-B iO Series 9 (Oral-B) - $299
+       Score: 7.93/10, Popular product
+    
+    3. Ray-Ban Aviator Classic (Ray-Ban) - $153
+       Score: 7.67/10, Matches your preferred category: Fashion
+    
+    4. Patagonia Black Hole 40L (Patagonia) - $159
+       Score: 7.49/10, Brand you've purchased before: Patagonia
+    
+    📚 SCENARIO 3: Budget-Conscious Student
+    Customer: Alex Thompson (Budget segment, first-time buyer)
+    Cart: Dell XPS 13 Laptop
+    
+    📋 Recommended Products (Budget-Friendly):
+    1. Logitech MX Master 3S (Logitech) - $99
+       Score: 15.85/10, Frequently bought with Dell XPS 13
+    
+    2. Spotify Premium (Annual) (Spotify) - $99
+       Score: 13.01/10, Matches your preferred category: Books & Media
+    
+    3. Instant Pot Duo 8QT (Instant Pot) - $89
+       Score: 10.8/10, Popular product
+    
+    4. Meguiar's Whole Car Air ReFresh (Meguiar's) - $79
+       Score: 10.4/10, Popular product
+    
+    5. Levi's 501 Original Jeans (Levi's) - $89
+       Score: 10.2/10, Popular product
+    
+    👗 SCENARIO 4: Luxury Fashion Enthusiast
+    Customer: Lisa Rodriguez (VIP segment, $45K+ spent)
+    Cart: Ray-Ban Aviator Sunglasses, Patagonia Jacket
+    
+    📋 Recommended Products (Premium):
+    1. Dyson V15 Detect (Dyson) - $749
+       Score: 13.2/10, Matches your preferred category: Home & Garden
+    
+    2. KitchenAid Stand Mixer (KitchenAid) - $379
+       Score: 10.17/10, Matches your preferred category: Home & Garden
+    
+    3. Dyson Airwrap (Dyson) - $599
+       Score: 10/10, Matches your preferred category: Beauty & Personal Care
+    
+    📈 ENTERPRISE ANALYTICS DASHBOARD
+    =================================
+
+    💰 Category Performance (Revenue & Orders):
+    Electronics: $4,545 revenue, 5 orders, $909 AOV
+    Sports & Outdoors: $1,956 revenue, 4 orders, $489 AOV
+    Home & Garden: $1,615 revenue, 5 orders, $323 AOV
+    Fashion: $1,102 revenue, 7 orders, $157 AOV
+    Beauty & Personal Care: $656 revenue, 3 orders, $219 AOV
+    Books & Media: $465 revenue, 6 orders, $78 AOV
+    Toys & Games: $349 revenue, 1 orders, $349 AOV
+    
+    👥 Customer Segmentation Analysis:
+    PREMIUM: 4 customers, $43,450 revenue, $13500 avg lifetime value
+    REGULAR: 2 customers, $5,390 revenue, $3800 avg lifetime value
+    VIP: 2 customers, $74,350 revenue, $42000 avg lifetime value
+    BUDGET: 2 customers, $1,270 revenue, $900 avg lifetime value
+    
+    🏆 Top Performing Products:
+    MacBook Pro 16-inch: $2,499 revenue, 1 units, 1 orders
+    Garmin Fenix 7: $1,398 revenue, 2 units, 2 orders
+    Dell XPS 13: $1,299 revenue, 1 units, 1 orders
+    Dyson V15 Detect: $749 revenue, 1 units, 1 orders
+    Dyson Airwrap: $599 revenue, 1 units, 1 orders
+    
+    🔧 PRODUCTION API SIMULATION
+    =============================
+   
+    🚀 Simulating Production API Calls:
+   
+    📡 API Call: POST /api/recommendations/cart
+    ✅ Generated 6 cart recommendations
+   
+    📡 API Call: GET /api/customers/john-tech/insights
+    ✅ Retrieved customer insights: premium segment, $15420 spent
+   
+    📡 API Call: GET /api/products/airpods-pro/analytics
+    ✅ Product analytics: high velocity, low stockout risk
+   
+    🎉 Cart Recommendation System Ready for Production!
+    Features include:
+       • Real-time personalized recommendations
+       • Multi-dimensional product relationships
+       • Customer segmentation & lifetime value analysis
+       • Enterprise analytics dashboard
+       • Production-ready API endpoints
+       • Scalable graph-based algorithms
+</details>
+
 
 ---
 
