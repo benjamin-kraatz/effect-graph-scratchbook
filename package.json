@@ -4,7 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --bun run index.ts"
+    "dev": "bun --bun run index.ts",
+    "playground": "bun --bun run graph-playground.ts",
+    "simple": "bun --bun run simple-graph-playground.ts"
   },
   "dependencies": {
     "@effect/experimental": "^0.57.0",
